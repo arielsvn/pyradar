@@ -61,10 +61,9 @@ class TargetLabel(QGraphicsRectItem, GraphicItem):
     
     def __init__(self, parent=None):
         super().__init__(10,10,60,40, parent)
-    
-#    def advance(self, phase):
-#        super().advance(phase)
         
+    @pyqtProperty(float)
+    def center(self): return self.rect().center()
         
 class TargetView(QGraphicsItem):
     def __init__(self, target, tail_length = 3):
@@ -75,15 +74,10 @@ class TargetView(QGraphicsItem):
         self.tail_length = tail_length
         self.target = target
         
-        # when the target's location is updated update the TargetView position
-        # target.location_changed.connect(self.update_location)
-        
         self.plane = QGraphicsEllipseItem(-2, -2, 4, 4, self)
         #self.speed_vector=LineItem(parent = self.plane)
         self.label=TargetLabel(parent = self.plane)
         #self.history_marks = [QGraphicsEllipseItem(-1, -1, 2, 2, self) for i in range(tail_length)]
-        
-        #self.update_location() # set target's position based on the target position
     
     def advance(self, phase):
         super().advance(phase)
@@ -91,7 +85,9 @@ class TargetView(QGraphicsItem):
         if phase == 0:
             self._new_label_pos = self.calculate_label_forces()
         else:
+            # any coordinate transformation must be here
             self.plane.setPos(self.target.position)
+            
             self.label.setPos(self._new_label_pos)
     
             
@@ -99,24 +95,29 @@ class TargetView(QGraphicsItem):
         # calculates the forces applied to the label and returns the new position
         # in the label coordinate system
         
-        radar = self.scene()
-        print(radar)
+        def length(point): return math.sqrt(point.x()**2 + point.y()**2)
         
-#        k=math.sqrt(self.area/len(self.radar.targets))
-#        def attractive_force(distance): distance**2 / k
-#        def repulsive_force(distance): k**2 / distance
-
-#        # calculate repulsive forces
-#        for view in self.target_views():
-#            view.disp = 0
-#            
-#            for other in self.target_views():
-#                if view != other:
-#                    #other_pos = view.label.mapFromItem(other.label, other.label.center)
-#                    #d = view.label.center - other_pos
-#                    pass
-#        
-        return self.label.pos()
+        radar = self.scene()
+        
+        k=math.sqrt(radar.area/len(radar.radar.targets))
+        def attractive_force(distance): return distance**2 / k
+        def repulsive_force(distance): return k**2 / distance
+        
+        disp = Point()
+        
+        # calculate repulsive forces
+        for view in radar.target_views():
+            if view != self: # for each other targets
+                other_pos = self.label.mapFromItem(view.label, view.label.center)
+                d = view.label.center - other_pos
+                distance = length(d)
+                disp += (d/distance) * repulsive_force(distance)
+                
+        # TODO calculate attractive forces
+        pos=self.label.pos()
+        pos+= (disp / length(disp))
+        
+        return pos
     
     @pyqtSlot()
     def update_location(self):
