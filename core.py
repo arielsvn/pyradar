@@ -50,13 +50,12 @@ class NetworkSimulator(Network):
         super().__init__()
         
         rand=Random()
-        self.targets=[Target(i) for i in range(5)]
+        self.targets=[Target(i, Point(rand.uniform(-200, 200), rand.uniform(-200, 200))) for i in range(8)]
         
         for target in self.targets:
         
             def foo(local_target):
                 def notify():
-                    print('position changed notification', local_target.targetId, local_target.position)
                     message = TargetPositionMessage(local_target.targetId, local_target.position)
                     self.message_arrived.emit(message)
                 return notify

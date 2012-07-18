@@ -62,6 +62,13 @@ class TargetLabel(QGraphicsRectItem, GraphicItem):
     def __init__(self, parent=None):
         super().__init__(10,10,60,40, parent)
         
+        self.setFlag(QtGui.QGraphicsItem.ItemIsMovable)
+        self.setFlag(QtGui.QGraphicsItem.ItemSendsGeometryChanges)
+        self.setCacheMode(QtGui.QGraphicsItem.DeviceCoordinateCache)
+        
+    def paint(self, painter, option, widget):
+        super().paint(painter, option, widget)
+        
     @pyqtProperty(float)
     def center(self): return self.rect().center()
         
@@ -75,8 +82,9 @@ class TargetView(QGraphicsItem):
         self.target = target
         
         self.plane = QGraphicsEllipseItem(-2, -2, 4, 4, self)
-        #self.speed_vector=LineItem(parent = self.plane)
+        # self.speed_vector = LineItem(parent = self.plane)
         self.label=TargetLabel(parent = self.plane)
+        self.box_line = LineItem(parent = self.plane)
         #self.history_marks = [QGraphicsEllipseItem(-1, -1, 2, 2, self) for i in range(tail_length)]
     
     def advance(self, phase):
@@ -87,8 +95,8 @@ class TargetView(QGraphicsItem):
         else:
             # any coordinate transformation must be here
             self.plane.setPos(self.target.position)
-            
             self.label.setPos(self._new_label_pos)
+            self.box_line.end = self.plane.mapFromItem(self.label, self.label.center)
     
             
     def calculate_label_forces(self):
@@ -100,22 +108,33 @@ class TargetView(QGraphicsItem):
         radar = self.scene()
         
         k=math.sqrt(radar.area/len(radar.radar.targets))
-        def attractive_force(distance): return distance**2 / k
-        def repulsive_force(distance): return k**2 / distance
+        
+        def attractive_force(distance): return (distance**3) / k
+        def repulsive_force(distance): return k**2 / (distance)
         
         disp = Point()
+        def repulse(item, point):
+            
         
         # calculate repulsive forces
         for view in radar.target_views():
             if view != self: # for each other targets
+            
                 other_pos = self.label.mapFromItem(view.label, view.label.center)
-                d = view.label.center - other_pos
+                d = self.label.center - other_pos
                 distance = length(d)
                 disp += (d/distance) * repulsive_force(distance)
-                
-        # TODO calculate attractive forces
+        
+        # TODO calculate attractive forces, only for the target
+        other_pos = self.label.mapFromItem(self.plane, Point(0,0)) # the plane is in (0; 0)
+        d = self.label.center - other_pos
+        distance = length(d)
+        disp -= (d/distance) * attractive_force(distance)
+
         pos=self.label.pos()
-        pos+= (disp / length(disp))
+        
+        if not (disp.x()<0.1 and disp.y()<0.1):
+            pos += (disp / length(disp))
         
         return pos
     
