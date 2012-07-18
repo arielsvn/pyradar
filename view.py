@@ -1,4 +1,5 @@
 from random import Random
+import math
 from core import Target
 from PyQt4 import QtCore, QtGui
 from PyQt4.QtGui import QGraphicsEllipseItem, QGraphicsItem, QGraphicsLineItem, QGraphicsRectItem
@@ -60,9 +61,10 @@ class TargetLabel(QGraphicsRectItem, GraphicItem):
     
     def __init__(self, parent=None):
         super().__init__(10,10,60,40, parent)
+    
+#    def advance(self, phase):
+#        super().advance(phase)
         
-    def update_location(self):
-        pass
         
 class TargetView(QGraphicsItem):
     def __init__(self, target, tail_length = 3):
@@ -74,14 +76,47 @@ class TargetView(QGraphicsItem):
         self.target = target
         
         # when the target's location is updated update the TargetView position
-        target.location_changed.connect(self.update_location)
+        # target.location_changed.connect(self.update_location)
         
         self.plane = QGraphicsEllipseItem(-2, -2, 4, 4, self)
-        self.speed_vector=LineItem(parent = self.plane)
+        #self.speed_vector=LineItem(parent = self.plane)
         self.label=TargetLabel(parent = self.plane)
-        self.history_marks = [QGraphicsEllipseItem(-1, -1, 2, 2, self) for i in range(tail_length)]
+        #self.history_marks = [QGraphicsEllipseItem(-1, -1, 2, 2, self) for i in range(tail_length)]
         
-        self.update_location() # set target's position based on the target position
+        #self.update_location() # set target's position based on the target position
+    
+    def advance(self, phase):
+        super().advance(phase)
+#        print('advance phase', phase)
+        if phase == 0:
+            self._new_label_pos = self.calculate_label_forces()
+        else:
+            self.plane.setPos(self.target.position)
+            self.label.setPos(self._new_label_pos)
+    
+            
+    def calculate_label_forces(self):
+        # calculates the forces applied to the label and returns the new position
+        # in the label coordinate system
+        
+        radar = self.scene()
+        print(radar)
+        
+#        k=math.sqrt(self.area/len(self.radar.targets))
+#        def attractive_force(distance): distance**2 / k
+#        def repulsive_force(distance): k**2 / distance
+
+#        # calculate repulsive forces
+#        for view in self.target_views():
+#            view.disp = 0
+#            
+#            for other in self.target_views():
+#                if view != other:
+#                    #other_pos = view.label.mapFromItem(other.label, other.label.center)
+#                    #d = view.label.center - other_pos
+#                    pass
+#        
+        return self.label.pos()
     
     @pyqtSlot()
     def update_location(self):
@@ -104,27 +139,53 @@ class TargetView(QGraphicsItem):
     def paint(self, painter, option, widget=None): pass
     
 class RadarView(QtGui.QGraphicsScene):
-    def __init__(self):
-        super().__init__(-300,-300,600,600)
+    def __init__(self, radar, height=600, width=600):
+        super().__init__(- height/2,- width/2, height, width)
         
-        rand=Random()
-        self.targets=[Target() for i in range(5)]
-        for target in self.targets:
-            self.addItem(TargetView(target, tail_length=5))
+        self.radar=radar
+        for target in radar.targets:
+            self.addItem(TargetView(target))
+            
+        radar.target_detected.connect(self.target_detected)
         
-        self.timer=QtCore.QTimer()
-        def update():
-            for target in self.targets:
-                # target.x+=10
-                x = target.x + rand.uniform(-20, 20)
-                y = target.y + rand.uniform(-20, 20)
-                target.position = Point(x, y)
+    width = pyqtProperty(float, QtGui.QGraphicsScene.width)
+    height = pyqtProperty(float, QtGui.QGraphicsScene.height)
+    area = pyqtProperty(float, lambda self: self.width * self.height)
+    
+    def target_views(self):
+        return (view for view in self.items() if isinstance(view, TargetView))
         
-        self.timer.timeout.connect(update)
-        self.timer.start(1000/6)
+    @pyqtSlot(Target)
+    def target_detected(self, target):
+        view = TargetView(target)
+        self.addItem(view)
         
     @pyqtSlot()
     def advance(self):
         super().advance()
         
         # rearrange labels in the scene, note that all label positions should be updated
+        if self.radar.targets:
+            k=math.sqrt(self.area/len(self.radar.targets))
+            
+            def attractive_force(distance): distance**2 / k
+            def repulsive_force(distance): k**2 / distance
+            
+            # calculate repulsive forces
+            for view in self.target_views():
+                view.disp=0
+                
+                for other in self.target_views():
+                    if view != other:
+                        #other_pos = view.label.mapFromItem(other.label, other.label.center)
+                        #d = view.label.center - other_pos
+                        pass
+                
+                
+                
+                
+                
+                
+                
+                
+                
