@@ -33,7 +33,7 @@ class Target(QObject):
     def position(self, value):
         self._position=value
         self.location_changed.emit()
-                
+        
 class Message: pass
 
 class TargetPositionMessage(Message):
@@ -43,14 +43,14 @@ class TargetPositionMessage(Message):
     
 class Network(QObject):
     message_arrived = pyqtSignal(Message)
-
+    
 class NetworkSimulator(Network):
     """ generates random target positions messages """
     def __init__(self):
         super().__init__()
         
         rand=Random()
-        self.targets=[Target(i, Point(rand.uniform(-200, 200), rand.uniform(-200, 200))) for i in range(8)]
+        self.targets=[Target(i, Point(rand.uniform(-100, 100), rand.uniform(-100, 100))) for i in range(8)]
         
         for target in self.targets:
         
@@ -59,7 +59,7 @@ class NetworkSimulator(Network):
                     message = TargetPositionMessage(local_target.targetId, local_target.position)
                     self.message_arrived.emit(message)
                 return notify
-
+                
             target.location_changed.connect(foo(target))
         
         self.timer=QtCore.QTimer()
@@ -71,7 +71,7 @@ class NetworkSimulator(Network):
             target.position = Point(x, y)
         
         self.timer.timeout.connect(update)
-        self.timer.start(1000/5)
+        self.timer.start(1000/3)
     
 class Radar(QObject):
     target_droped=pyqtSignal(Target) # the radar is no longuer following this target
