@@ -46,11 +46,11 @@ class Network(QObject):
     
 class NetworkSimulator(Network):
     """ generates random target positions messages """
-    def __init__(self):
+    def __init__(self, number_of_targets = 5):
         super().__init__()
         
         rand=Random()
-        self.targets=[Target(i, Point(rand.uniform(-100, 100), rand.uniform(-100, 100))) for i in range(8)]
+        self.targets=[Target(i, Point(rand.uniform(-100, 100), rand.uniform(-100, 100))) for i in range(number_of_targets)]
         
         for target in self.targets:
         

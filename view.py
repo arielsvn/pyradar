@@ -21,12 +21,6 @@ class GraphicItem:
     """ All graphic items must inherit these properties """    
     position = pyqtProperty(Point, QGraphicsItem.pos, QGraphicsItem.setPos)
     parent=pyqtProperty(QGraphicsItem, QGraphicsItem.parentItem)
-    
-    def findScene(self):
-        parent=self
-        while not parent.scene():
-            parent=parent.parentItem()
-        return parent.scene()
         
 class LineItem(QGraphicsLineItem):
     pen = pyqtProperty(QtGui.QPen, QGraphicsLineItem.pen, QGraphicsLineItem.setPen)
@@ -63,12 +57,14 @@ class TargetLabel(QGraphicsRectItem, GraphicItem):
         
         self.setFlag(QtGui.QGraphicsItem.ItemIsMovable)
         self.setFlag(QtGui.QGraphicsItem.ItemSendsGeometryChanges)
+        self.setFlag(QtGui.QGraphicsItem.ItemIgnoresTransformations)
         self.setCacheMode(QtGui.QGraphicsItem.DeviceCoordinateCache)
+        
         self.setZValue(1)
         
     def paint(self, painter, option, widget):
         if self.parent.parent.is_selected:
-            self.setBrush(QtCore.Qt.red)
+            self.setBrush(QtCore.Qt.green)
         else:
             self.setBrush(QtCore.Qt.darkGray)
         
@@ -77,20 +73,25 @@ class TargetLabel(QGraphicsRectItem, GraphicItem):
     @pyqtProperty(float)
     def center(self): return self.rect().center()
     
+    @pyqtProperty(QtGui.QGraphicsScene)
+    def radar(self): return self.parent.parent
+    
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
-        self.parent.parent.is_selected = not self.parent.parent.is_selected
-    
+        self.radar.is_selected = not self.radar.is_selected
+
 class PlaneView(QGraphicsEllipseItem, GraphicItem):
     def __init__(self, parent=None):
         super().__init__(-2, -2, 4, 4, parent)
         
         self.setFlag(QtGui.QGraphicsItem.ItemIsMovable)
+        self.setFlag(QtGui.QGraphicsItem.ItemIgnoresTransformations)
         self.setZValue(2)
         
         self.setBrush(QtCore.Qt.red)
         
 class TargetView(QGraphicsItem):
+    speed = 2. # 
     def __init__(self, target, tail_length = 3):
         # super params (x, y, width, height)
         QGraphicsItem.__init__(self)
@@ -126,21 +127,17 @@ class TargetView(QGraphicsItem):
         radar = self.scene()
         
         # k=math.sqrt(radar.area/len(radar.radar.targets))
-        k=200
+        k=20
         
-        def attractive_force(distance): return (distance**2) #/ k
-        def repulsive_force(distance): 
-            if distance < 200:
-                return k**2 / (distance) 
-            else: 
-                return 500
+        def attractive_force(distance): return (distance**2) / 50
+        def repulsive_force(distance): return 20**2 / (distance) 
         
         disp = Point()
         def repulse(from_item, to_item, from_point = Point(), to_point=Point()):
             other_pos = from_item.mapFromItem(to_item, to_point)
             d = from_point - other_pos
             distance = length(d)
-            return (d/distance) * repulsive_force(distance) if distance>0. else 0.
+            return (d/distance) * repulsive_force(distance)
             
         def attract(from_item, to_item, from_point = Point(), to_point=Point()):
             other_pos = from_item.mapFromItem(to_item, to_point)
@@ -151,16 +148,18 @@ class TargetView(QGraphicsItem):
         # calculate repulsive forces
         for view in radar.target_views():
             if view != self: # for each other targets
-                disp += repulse(self.label, view.label, self.label.center, view.label.center) * 2.
-                disp += repulse(self.label, view.plane, self.label.center) * 3.
+                disp += repulse(self.label, view.label, self.label.center, view.label.center)
+            
+            disp += repulse(self.label, view.plane, self.label.center)*4.
         
         # TODO calculate attractive forces, only for the target
         disp -= attract(self.label, self.plane, self.label.center)
 
         pos=self.label.pos()
         
-        if not(disp.x()<0.2 and disp.y()<0.2) and not self.is_selected:
-            pos += (disp / length(disp))
+        if not self.is_selected:
+            displacement = (disp / length(disp)) * 2.
+            pos += displacement
         
         return pos
     
@@ -245,11 +244,47 @@ class RadarView(QtGui.QGraphicsScene):
                         #d = view.label.center - other_pos
                         pass
                 
-                
-                
-                
-                
-                
-                
-                
-                
+class RadarWidget(QtGui.QGraphicsView):
+    def __init__(self, radar, frames_per_second = 33):
+        super().__init__()
+        
+        scene = RadarView(radar)
+        
+        # create a timer to advance the scene each frame
+        self.startTimer(1000/frames_per_second)
+        
+        scene.setItemIndexMethod(QtGui.QGraphicsScene.NoIndex)
+        scene.setSceneRect(-200, -200, 400, 400)
+        self.setScene(scene)
+        self.setCacheMode(QtGui.QGraphicsView.CacheBackground)
+        self.setViewportUpdateMode(QtGui.QGraphicsView.BoundingRectViewportUpdate)
+        self.setRenderHint(QtGui.QPainter.Antialiasing)
+        self.setTransformationAnchor(QtGui.QGraphicsView.AnchorUnderMouse)
+        self.setResizeAnchor(QtGui.QGraphicsView.AnchorViewCenter)
+        
+    def timerEvent(self, event):
+        self.scene().advance()
+        
+    def wheelEvent(self, event):
+        self.scaleView(math.pow(2.0, -event.delta() / 240.0))
+        
+    def scaleView(self, scaleFactor):
+        factor = self.matrix().scale(scaleFactor, scaleFactor).mapRect(QtCore.QRectF(0, 0, 1, 1)).width()
+        
+        if factor < 0.07 or factor > 100:
+            return
+        
+        self.scale(scaleFactor, scaleFactor)
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
