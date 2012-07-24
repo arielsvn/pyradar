@@ -6,7 +6,7 @@ from core import Radar, NetworkSimulator
 
 app=QtGui.QApplication(sys.argv)
 
-network=NetworkSimulator(number_of_targets = 10)
+network=NetworkSimulator(number_of_targets = 1)
 radar=Radar(network)
 
 # create a QGraphicsView to display the scene

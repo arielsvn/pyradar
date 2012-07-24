@@ -127,33 +127,32 @@ class TargetView(QGraphicsItem):
         radar = self.scene()
         
         # k=math.sqrt(radar.area/len(radar.radar.targets))
-        k=20
-        
-        def attractive_force(distance): return (distance**2) / 50
-        def repulsive_force(distance): return 20**2 / (distance) 
+        k = 20
         
         disp = Point()
-        def repulse(from_item, to_item, from_point = Point(), to_point=Point()):
+        def repulse(from_item, to_item, from_point = Point(), to_point=Point(), k = 20):
             other_pos = from_item.mapFromItem(to_item, to_point)
             d = from_point - other_pos
             distance = length(d)
-            return (d/distance) * repulsive_force(distance)
+            repulsive_force = k**2 / distance
+            return (d/distance) * repulsive_force
             
-        def attract(from_item, to_item, from_point = Point(), to_point=Point()):
+        def attract(from_item, to_item, from_point = Point(), to_point=Point(), k=50):
             other_pos = from_item.mapFromItem(to_item, to_point)
             d = from_point - other_pos
             distance = length(d)
-            return (d/distance) * attractive_force(distance) if distance>0. else 0.
+            attractive_force = (distance**2) / k
+            return (d/distance) * attractive_force
         
         # calculate repulsive forces
         for view in radar.target_views():
             if view != self: # for each other targets
                 disp += repulse(self.label, view.label, self.label.center, view.label.center)
             
-            disp += repulse(self.label, view.plane, self.label.center)*4.
+            disp += repulse(self.label, view.plane, self.label.center, k=30)
         
         # TODO calculate attractive forces, only for the target
-        disp -= attract(self.label, self.plane, self.label.center)
+        disp -= attract(self.label, self.plane,self.label.center, k=300)
 
         pos=self.label.pos()
         
